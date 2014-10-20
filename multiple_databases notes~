@@ -1,0 +1,159 @@
+multiple databases in one project
+
+
+'default' is used for most django actions by default.
+
+thus to migrate specific database:
+./manage.py makemigrations --database=mydb
+./manage.py migrate --database=mydb
+
+to set up multiple databases in settings:
+DATABASES = {
+    'default': {},
+    'users': {
+        'NAME': 'user_data',
+        'ENGINE': 'django.db.backends.mysql',
+        'USER': 'mysql_user',
+        'PASSWORD': 'superS3cret'
+    },
+    'customers': {
+        'NAME': 'customer_data',
+        'ENGINE': 'django.db.backends.mysql',
+        'USER': 'mysql_cust',
+        'PASSWORD': 'veryPriv@ate'
+    }
+}
+
+
+Routing: 
+django's out of the box routing default uses default db as default for all actions.
+
+for multiple db's you have to create/download custom db router.
+db router has 4 main methods:
+
+*****each are providing "hints" for which db to use. main hint is type of model. other hints also given. Each method returns None if hints dont lead to conclusive db.*************
+
+db_for_read(model, **hints) - which db for read for objects of type model.
+db_for_write(model, **hints) - which db for writes of objects of type model.
+allow_relation(obj1, obj2, **hints) - return True if relation between obj1 and obj2 should be allowed. False if relation should be prevented. None if router doesnt care.
+entire  point of allow_relation is just to help validate. not really routing.
+allow_migrate(db, model) - should model have tables/indexes created in db with alias "db". False if should not be migrated. None if router doesnt care. Helps availability of model on given databases.
+
+NOTE: migrations will just silently NOT perform any operation on model for which this returns false. THIS CAN OCCUR IF YOU HAVE BROKEN ForeignKeus, extra tables, or missing tables if you change it manually after applying migrations!!!!!!
+NOTE: this explains why your model did JACK in 1st postgres version!!!!!!!!!
+
+
+
+
+how use install/use router:
+DATABASE_ROUTERS setting should be actually filled out. It contains a list of class names. each class is a router that is used by master router (django.db.router) to route properly.
+
+DATABASE_ROUTERS = ['path.to.AuthRouter', 'path.to.PrimaryReplicaRouter']
+	order listed here is how routers will be searched through.
+master will call master router to determine which db to use. it calls master router and gives it params model and optional hints. django tries each router to until a db match is found. if none found, then uses _state.db. not sure how _state.db works. BUT if this fails then uses default db.
+
+a router system looks like AuthRouter.
+Key points to note - above 4 methods defined. each method returns name of db. thats it. :) 
+class AuthRouter(object):
+    """
+    A router to control all database operations on models in the
+    auth application.
+    """
+    def db_for_read(self, model, **hints):
+        """
+        Attempts to read auth models go to auth_db.
+        """
+        if model._meta.app_label == 'auth':
+            return 'auth_db'
+        return None
+
+    def db_for_write(self, model, **hints):
+        """
+        Attempts to write auth models go to auth_db.
+        """
+        if model._meta.app_label == 'auth':
+            return 'auth_db'
+        return None
+
+    def allow_relation(self, obj1, obj2, **hints):
+        """
+        Allow relations if a model in the auth app is involved.
+        """
+        if obj1._meta.app_label == 'auth' or \
+           obj2._meta.app_label == 'auth':
+           return True
+        return None
+
+    def allow_migrate(self, db, model):
+        """
+        Make sure the auth app only appears in the 'auth_db'
+        database.
+        """
+        if db == 'auth_db':
+            return model._meta.app_label == 'auth'
+        elif model._meta.app_label == 'auth':
+            return False
+        return None
+
+
+
+
+FOR ME:
+db_for_read is going to have it so that 
+	if model is history
+		use mongo
+	else 
+		use PG
+db_for_write
+	if model is history
+		use mongo
+	else 
+		use PG
+
+
+
+
+in view, 1st have to look at create_db
+	put inside PG and MONGO
+		History(data=data).save()
+		Timeline(data=data).save() 
+		meaning you dont really have to worry much here.
+		just have to make sure db_for_write  uses above statements.
+update_db
+	Timeline(data=data)
+	then add new data into History as well. same as previous Timeline_mongo code.
+	again, only have to make sure db_for_write is configured as shown above
+
+get_project
+	if no date given:
+		timeline.objects.get(project_id=project_id)
+	else:
+		go down historical db
+
+
+
+NOTE:::::: in terms of optimazations, the mongo version actually does this already.
+it stores recent info for a project_id in fields and then updates historical array as needed.
+this hybrid does same thing
+
+
+TRUE optimization here is that I will NOT even have to look into historical part of application if i dont want historical data. currently, when i get info about db, i get both current and history array. with hybrid, history not even looked at.
+	was told that doing manipulation using model versus inside db shouldnt make much difference
+	now going to determine whether attaining all that info is actually useful or not.
+
+
+Manually selecting database:
+if the above routing stuff doesnt work, django allows you to manually select which db to use:
+Author.objects.using('db_alias').all()
+
+this is certainly very nice to work with but can get really complex in big project thus not the best way to use it. try router version first. it seems fairly simple? hopefully? if it doesnt work then you can just use .using()
+
+
+notable issue with using()
+	consider the code:		
+	p = Person(name='Fred')
+	p.save(using='first')  # (statement 1)
+	p.save(using='second') # (statement 2)
+when you first save p into first db then first will use insert statement and thus assign primary key to p. this primary key is stored to p object!!!! thus when you save to second db
+
+Actually, it seems that the using can get really complex. dont use!!!!!!!!! its a trap!
