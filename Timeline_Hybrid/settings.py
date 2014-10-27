@@ -8,6 +8,10 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/1.7/ref/settings/
 """
 
+#apparently need this for multiple databases
+from django.db import connections
+
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 import os
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -54,12 +58,18 @@ ROOT_URLCONF = 'Timeline_Hybrid.urls'
 
 WSGI_APPLICATION = 'Timeline_Hybrid.wsgi.application'
 
-
+#MAKING DEFAULT=POSTGRE.
 # Database
 # https://docs.djangoproject.com/en/1.7/ref/settings/#databases
-
+DATABASE_ROUTERS = ['osf.DBRouters.DBRouter']
 DATABASES = {
-    'default':{},
+    'default':{
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'himanshu',
+        'USER': 'himanshu',
+        'PASSWORD': 'chanchal1234',
+        'HOST': 'localhost',
+        'PORT': '',},
     'pg': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
         'NAME': 'himanshu',

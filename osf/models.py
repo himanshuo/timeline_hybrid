@@ -18,7 +18,7 @@ class Timeline(models.Model):
             # if blank, then null=True will make it null in db
     title = models.CharField(max_length=256, null=True, blank=True)#null= makes it so blank values are stored as null which is what you want.
     author = models.CharField(max_length=256, null=True,blank=True)
-    wiki = models.TextField(max_length=256, null=True, blank=True)
+    wiki = models.TextField(null=True, blank=True)
     project_id = models.IntegerField(blank=False, null=False)#cant be empty
     #version = models.IntegerField()
     date = models.DateTimeField(blank=False)#cant be empty since by default blank=False(+specified)
@@ -31,7 +31,7 @@ class Timeline(models.Model):
 class History(models.Model):
     title = models.CharField(max_length=256, null=True, blank=True)#null= makes it so blank values are stored as null which is what you want.
     author = models.CharField(max_length=256, null=True,blank=True)
-    wiki = models.TextField(max_length=256, null=True, blank=True)
+    wiki = models.TextField( null=True, blank=True)
 
     date = models.DateTimeField()
     project_id = models.IntegerField(blank=False, null=False)

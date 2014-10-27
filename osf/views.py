@@ -42,17 +42,20 @@ def proper_creation_request(data):
 def create_new_project(request, format=None):
     print "new proj called"
     if request.method == 'POST':
+        print 1
         print str(request.DATA)
 
-        p_id = int(request.DATA['project_id'])
+
 
         if not proper_creation_request(request.DATA):
             return Response("proper input not provided",status=status.HTTP_400_BAD_REQUEST)
-
+        print 2
+        p_id = int(request.DATA['project_id'])
+        print 3
         try:
 
             timeline = Timeline.objects.get(project_id=p_id)
-
+            print 4
            #if project with given project id exists, then throw error.
             return Response("project already exists",status=status.HTTP_400_BAD_REQUEST)
         except:
@@ -64,19 +67,34 @@ def create_new_project(request, format=None):
 
             post_date = request.DATA['date'].split("-")
             d = datetime.datetime(month=int(post_date[0]), day=int(post_date[1]),year=int(post_date[2])) # 09-20-2014
-
+            print 5
 
             data = request.DATA.copy()
             data['date']=d
-            data['project_id'] = int(request.DATA['project_id'])
+            data['project_id'] = p_id
+            print data
+            print 6
 
 
-            serializer = TimelineSerializer(data=data)
+            serializer = TimelineSerializer(Timeline(
+                date=d,
+                wiki=data['wiki'],
+                project_id=p_id,
+                author=data['author'],
+                title=data['title']
 
+            ))
 
-
+            #serializer = TimelineSerializer(data=data)
+            print serializer.data
+            print 7
+            print serializer
+            #print serializer.data
             if serializer.is_valid():
+                print 8
+                print serializer.get_validation_exclusions()
                 serializer.save()
+                print 9
                 properly_pg=True
             else:
                 return Response("input data did not save in postgre", status=status.HTTP_400_BAD_REQUEST)
@@ -88,13 +106,16 @@ def create_new_project(request, format=None):
                         project_id=p_id,
                         time=data['time'],
                         author=data['author'])
+            print 10
             h.save()
+            print 11
             properly_mongo = True
         except:
             return Response("project unable to be created in mongo", status=status.HTTP_400_BAD_REQUEST)
 
         if properly_pg and properly_mongo:
             out = {p_id:"Project Created."}
+            print 12, out
             return Response(out, status=status.HTTP_201_CREATED)
         else:
             return Response("input data exists, but is not valid.", status=status.HTTP_400_BAD_REQUEST)

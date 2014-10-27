@@ -8,3 +8,4 @@ class TimelineSerializer(serializers.ModelSerializer):
     class Meta:
         model = Timeline
         fields = ('id','title', 'author', 'wiki','project_id', 'date' )
+        #fields = ('title', 'author', 'wiki','project_id', 'date' )
